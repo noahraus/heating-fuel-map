@@ -234,7 +234,7 @@
     </div>
   </div>
   <div class="panel" id="panel-other">
-    <div class="panel-label">Other / No Fuel</div>
+    <div class="panel-label">Propane, Wood, Coal, Solar &amp; Other</div>
     <div class="map-container" id="map-other"></div>
     <div class="legend" id="legend-other">
       <div class="legend-title">% of occupied units</div>
@@ -255,6 +255,7 @@
   <div class="info-row"><span class="info-label">Years</span><span>2010–2024</span></div>
   <div class="info-row"><span class="info-label">Geography</span><span>Census tracts, contiguous US</span></div>
   <div class="info-row"><span class="info-label">Source</span><span>U.S. Census Bureau</span></div>
+  <div class="info-row"><span class="info-label">Fuels</span><span>Gas = piped utility gas &nbsp;|&nbsp; Elec = all electric &nbsp;|&nbsp; FO = fuel oil &amp; kerosene &nbsp;|&nbsp; Other = bottled/LP gas, wood, coal, solar, other fuel &amp; no fuel</span></div>
   <p style="margin-top:10px">
     Gray tracts have no occupied housing units (water bodies, military reservations, parks, airports).
   </p>
@@ -419,7 +420,7 @@ FUELS.forEach(fuel => {
         <tr><td>Natural gas</td><td>${fmt(d.g)}</td></tr>
         <tr><td>Electricity</td><td>${fmt(d.e)}</td></tr>
         <tr><td>Fuel oil / kerosene</td><td>${fmt(d.f)}</td></tr>
-        <tr><td>Other / no fuel</td><td>${fmt(d.o)}</td></tr>
+        <tr><td>Propane / Wood / Coal / Solar / Other</td><td>${fmt(d.o)}</td></tr>
       </table>
       <div class="tip-footer">n = ${d.n.toLocaleString()} occupied units</div>
     `;

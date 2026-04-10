@@ -372,7 +372,9 @@ let dataCache = {};   // { year: tractDataObject }
 let activeYear = 2024;
 
 function currentVintage() {
-  return manifest && manifest.vintage_2020.includes(activeYear) ? '2020' : '2010';
+  // concat normalises to array whether vintage_2020 is a scalar or array
+  // (jsonlite auto_unbox collapses single-element R vectors to scalars)
+  return manifest && [].concat(manifest.vintage_2020).includes(activeYear) ? '2020' : '2010';
 }
 
 async function loadManifest() {

@@ -351,12 +351,7 @@ FUELS.forEach(fuel => {
         'source-layer': 'tracts',
         layout: { visibility: v === '2020' ? 'visible' : 'none' },
         paint: {
-          'fill-color': [
-            'case',
-            ['!=', ['feature-state', 'color'], null],
-            ['feature-state', 'color'],
-            '#d0d0d0'
-          ],
+          'fill-color': '#d0d0d0',
           'fill-opacity': 0.82,
           'fill-outline-color': 'rgba(255,255,255,0.25)'
         }
@@ -506,21 +501,26 @@ async function applyYear(year) {
     });
   });
 
-  // Apply feature states — one call per tract per map
+  // Build a match expression per fuel and set it as the fill-color paint property.
+  // This is evaluated at render time for every feature in every tile, so tiles that
+  // load after this call automatically get the correct color — no race condition.
   const colorKeys = { gas: 'cg', elec: 'ce', fo: 'cf', other: 'co' };
 
   FUELS.forEach(fuel => {
-    const map   = maps[fuel];
-    const cKey  = colorKeys[fuel];
-    const src   = `tracts-${vintage}`;
+    const map  = maps[fuel];
+    const cKey = colorKeys[fuel];
+    const layer = `fill-${vintage}`;
+    if (!map.getLayer(layer)) return;
 
+    // ['match', ['id'], geoid1, color1, geoid2, color2, ..., fallback]
+    const expr = ['match', ['id']];
     Object.entries(data).forEach(([geoid, vals]) => {
       if (typeof vals !== 'object' || !vals[cKey]) return;
-      map.setFeatureState(
-        { source: src, sourceLayer: 'tracts', id: geoid },
-        { color: vals[cKey] }
-      );
+      expr.push(geoid, vals[cKey]);
     });
+    expr.push('#d0d0d0'); // fallback for zero-HH / no-data tracts
+
+    map.setPaintProperty(layer, 'fill-color', expr);
   });
 
   document.getElementById('loading').classList.add('hidden');

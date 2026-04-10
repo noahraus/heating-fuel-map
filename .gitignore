@@ -1,0 +1,25 @@
+# Large build artifacts — regenerate with build/prepare_data.R + build/build_tiles.sh
+build/cache/
+build/geojson/
+
+# PMTiles live in Cloudflare R2, not the repo
+docs/tiles/
+
+# Old Leaflet prototype outputs (superseded by PMTiles approach)
+output/
+
+# Legacy NYS/CONUS Leaflet scripts (superseded by build/)
+nys_tract_heating_fuel_maps.R
+nys_tract_heating_fuel_leaflet.R
+us_tract_heating_fuel_leaflet.R
+
+# Input caches (large RDS files, regenerable from build/prepare_data.R)
+input/cache/
+
+# Claude Code local settings
+.claude/
+
+# R session artifacts
+.Rhistory
+.RData
+.Rproj.user/

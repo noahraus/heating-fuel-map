@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>US Heating Fuel by Census Tract</title>
+
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <link  href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    #header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-shrink: 0;
+      min-height: 52px;
+    }
+    #header h1 { font-size: 15px; font-weight: 700; white-space: nowrap; }
+    #header p  { font-size: 11px; color: #9999bb; flex: 1; }
+
+    /* ── Year slider ─────────────────────────────────────────── */
+    #year-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #year-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      min-width: 38px;
+      text-align: right;
+    }
+    #year-slider {
+      width: 160px;
+      accent-color: #7cacf8;
+      cursor: pointer;
+    }
+
+    /* ── Map grid ────────────────────────────────────────────── */
+    #grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      flex: 1;
+      gap: 2px;
+      background: #111;
+    }
+
+    .panel {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(26,26,46,0.85);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 9px;
+      border-radius: 3px;
+      pointer-events: none;
+    }
+
+    .map-container { width: 100%; height: 100%; }
+
+    /* ── Legend ──────────────────────────────────────────────── */
+    .legend {
+      position: absolute;
+      bottom: 24px;
+      right: 8px;
+      z-index: 10;
+      background: rgba(26,26,46,0.88);
+      color: #eee;
+      font-size: 10px;
+      padding: 7px 9px;
+      border-radius: 4px;
+      min-width: 80px;
+    }
+    .legend-title { font-weight: 700; margin-bottom: 5px; font-size: 10px; }
+    .legend-bar {
+      width: 100%;
+      height: 10px;
+      border-radius: 2px;
+      margin-bottom: 3px;
+    }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #aaa;
+    }
+
+    /* ── Tooltip ─────────────────────────────────────────────── */
+    #tooltip {
+      position: fixed;
+      z-index: 100;
+      background: rgba(15,15,30,0.95);
+      color: #eee;
+      font-size: 11px;
+      padding: 8px 11px;
+      border-radius: 4px;
+      pointer-events: none;
+      display: none;
+      max-width: 220px;
+      line-height: 1.5;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    #tooltip b { color: #fff; }
+    #tooltip table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    #tooltip td { padding: 1px 0; }
+    #tooltip td:last-child { text-align: right; font-weight: 700; }
+    #tooltip .tip-footer { margin-top: 5px; color: #777; font-size: 10px; }
+
+    /* ── Loading overlay ─────────────────────────────────────── */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,10,20,0.75);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      z-index: 200;
+    }
+    #loading.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>US Heating Fuel by Census Tract</h1>
+  <p>ACS 5-year estimates, Table B25040 &mdash; share of occupied housing units using each fuel as primary heating source</p>
+  <div id="year-control">
+    <span id="year-label">2024</span>
+    <input id="year-slider" type="range" min="2010" max="2024" value="2024" step="1">
+  </div>
+</div>
+
+<div id="grid">
+  <div class="panel" id="panel-gas">
+    <div class="panel-label">Natural Gas</div>
+    <div class="map-container" id="map-gas"></div>
+    <div class="legend" id="legend-gas">
+      <div class="legend-title">% of occupied units</div>
+      <canvas class="legend-bar" id="lbar-gas" width="120" height="10"></canvas>
+      <div class="legend-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+  </div>
+  <div class="panel" id="panel-elec">
+    <div class="panel-label">Electricity</div>
+    <div class="map-container" id="map-elec"></div>
+    <div class="legend" id="legend-elec">
+      <div class="legend-title">% of occupied units</div>
+      <canvas class="legend-bar" id="lbar-elec" width="120" height="10"></canvas>
+      <div class="legend-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+  </div>
+  <div class="panel" id="panel-fo">
+    <div class="panel-label">Fuel Oil &amp; Kerosene</div>
+    <div class="map-container" id="map-fo"></div>
+    <div class="legend" id="legend-fo">
+      <div class="legend-title">% of occupied units</div>
+      <canvas class="legend-bar" id="lbar-fo" width="120" height="10"></canvas>
+      <div class="legend-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+  </div>
+  <div class="panel" id="panel-other">
+    <div class="panel-label">Other / No Fuel</div>
+    <div class="map-container" id="map-other"></div>
+    <div class="legend" id="legend-other">
+      <div class="legend-title">% of occupied units</div>
+      <canvas class="legend-bar" id="lbar-other" width="120" height="10"></canvas>
+      <div class="legend-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+<div id="loading">Loading&hellip;</div>
+
+<script>
+// ── Config — set TILES_BASE to your Cloudflare R2 public bucket URL ──────────
+// Example: "https://pub-abc123.r2.dev"
+// Leave trailing slash off. Tiles are fetched as ${TILES_BASE}/tracts_2020.pmtiles
+const TILES_BASE = "REPLACE_WITH_R2_URL";
+
+// ── PMTiles protocol ──────────────────────────────────────────────────────────
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol));
+
+// ── Palette definitions ───────────────────────────────────────────────────────
+// Each palette is a set of [stop, hex] pairs matching the viridisLite palettes
+// used in prepare_data.R (plasma/viridis/inferno/mako, begin=0.1, end=0.9).
+// The hex colors baked into the JSON were generated by those same palettes,
+// so these gradient stops are only used to render the legend bars.
+
+const PALETTES = {
+  gas:   { stops: ['#0d0221','#3b0f70','#8c2981','#de4968','#fe9f6d','#fde9a2'], colorKey: 'cg', pctKey: 'g' },
+  elec:  { stops: ['#440154','#414487','#2a788e','#22a884','#7ad151','#fde725'], colorKey: 'ce', pctKey: 'e' },
+  fo:    { stops: ['#0d0221','#3b0f70','#8c2981','#de4968','#fe9f6d','#fde9a2'], colorKey: 'cf', pctKey: 'f' },
+  other: { stops: ['#0a0a1a','#1d3a5e','#1a7f74','#4dbb74','#aede73','#f2f5ab'], colorKey: 'co', pctKey: 'o' }
+};
+
+// Override fo with inferno-like stops
+PALETTES.fo.stops   = ['#0a0000','#420a0a','#932567','#dd513a','#fca50a','#fcffa4'];
+// Override other with mako-like stops
+PALETTES.other.stops = ['#0b0405','#1d1d6e','#2f6f9e','#3cb3c2','#8dd9c3','#dee7f0'];
+
+// ── Map config ────────────────────────────────────────────────────────────────
+const FUELS     = ['gas', 'elec', 'fo', 'other'];
+const INIT_VIEW = { center: [-96, 38], zoom: 4 };
+const BOUNDS    = [[-127, 24], [-65, 50]];  // contiguous US
+
+// ── Base map style (CartoDB Positron equivalent) ──────────────────────────────
+function baseStyle() {
+  return {
+    version: 8,
+    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+    sources: {
+      carto: {
+        type: 'raster',
+        tiles: ['https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png',
+                'https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png'],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+      }
+    },
+    layers: [{ id: 'background', type: 'raster', source: 'carto' }]
+  };
+}
+
+// ── Create the four maps ──────────────────────────────────────────────────────
+const maps = {};
+FUELS.forEach(fuel => {
+  const map = new maplibregl.Map({
+    container:  `map-${fuel}`,
+    style:       baseStyle(),
+    center:      INIT_VIEW.center,
+    zoom:        INIT_VIEW.zoom,
+    maxBounds:   BOUNDS,
+    maxZoom:     12,
+    interactive: true,
+    attributionControl: false
+  });
+
+  // Add both vintage sources and fill layers (one hidden at a time)
+  map.on('load', () => {
+    ['2010', '2020'].forEach(v => {
+      map.addSource(`tracts-${v}`, {
+        type:      'vector',
+        url:       `pmtiles://${TILES_BASE}/tracts_${v}.pmtiles`,
+        promoteId: { tracts: 'GEOID' }   // promotes GEOID string property to feature id
+      });
+
+      map.addLayer({
+        id:     `fill-${v}`,
+        type:   'fill',
+        source: `tracts-${v}`,
+        'source-layer': 'tracts',
+        layout: { visibility: v === '2020' ? 'visible' : 'none' },
+        paint: {
+          'fill-color': [
+            'case',
+            ['!=', ['feature-state', 'color'], null],
+            ['feature-state', 'color'],
+            '#d0d0d0'
+          ],
+          'fill-opacity': 0.82,
+          'fill-outline-color': 'rgba(255,255,255,0.25)'
+        }
+      });
+    });
+  });
+
+  maps[fuel] = map;
+});
+
+// ── Pan/zoom sync ─────────────────────────────────────────────────────────────
+let syncing = false;
+FUELS.forEach(src => {
+  maps[src].on('move', () => {
+    if (syncing) return;
+    syncing = true;
+    const c = maps[src].getCenter();
+    const z = maps[src].getZoom();
+    FUELS.forEach(dst => {
+      if (dst !== src) maps[dst].jumpTo({ center: c, zoom: z });
+    });
+    syncing = false;
+  });
+});
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+let currentData = null;   // holds the loaded year's tract data object
+
+FUELS.forEach(fuel => {
+  const map = maps[fuel];
+
+  map.on('mousemove', e => {
+    if (!currentData) return;
+    const vintage = currentVintage();
+    const features = map.queryRenderedFeatures(e.point, {
+      layers: [`fill-${vintage}`]
+    });
+    if (!features.length) { tooltip.style.display = 'none'; return; }
+
+    const geoid = features[0].id;
+    const d = currentData[geoid];
+    if (!d) { tooltip.style.display = 'none'; return; }
+
+    const fmt = v => (v * 100).toFixed(1) + '%';
+    tooltip.innerHTML = `
+      <b>${d.nm || geoid}</b>
+      <table>
+        <tr><td>Natural gas</td><td>${fmt(d.g)}</td></tr>
+        <tr><td>Electricity</td><td>${fmt(d.e)}</td></tr>
+        <tr><td>Fuel oil / kerosene</td><td>${fmt(d.f)}</td></tr>
+        <tr><td>Other / no fuel</td><td>${fmt(d.o)}</td></tr>
+      </table>
+      <div class="tip-footer">n = ${d.n.toLocaleString()} occupied units</div>
+    `;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+    tooltip.style.top  = (e.originalEvent.clientY - 10) + 'px';
+  });
+
+  map.on('mouseleave', () => { tooltip.style.display = 'none'; });
+});
+
+// ── Legend bars (gradient canvas) ─────────────────────────────────────────────
+function drawLegendBar(canvasId, stops) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  stops.forEach((color, i) => grad.addColorStop(i / (stops.length - 1), color));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+FUELS.forEach(fuel => drawLegendBar(`lbar-${fuel}`, PALETTES[fuel].stops));
+
+// ── Data loading and feature state application ────────────────────────────────
+let manifest = null;
+let dataCache = {};   // { year: tractDataObject }
+let activeYear = 2024;
+
+function currentVintage() {
+  return manifest && manifest.vintage_2020.includes(activeYear) ? '2020' : '2010';
+}
+
+async function loadManifest() {
+  const r = await fetch('data/manifest.json');
+  manifest = await r.json();
+
+  // Configure slider from manifest
+  const slider = document.getElementById('year-slider');
+  slider.min   = Math.min(...manifest.years);
+  slider.max   = Math.max(...manifest.years);
+  slider.value = manifest.default_year;
+  activeYear   = manifest.default_year;
+  document.getElementById('year-label').textContent = activeYear;
+}
+
+async function loadYear(year) {
+  if (!dataCache[year]) {
+    const r = await fetch(`data/${year}.json`);
+    const json = await r.json();
+    // Separate meta from tract records
+    dataCache[year] = json;
+  }
+  return dataCache[year];
+}
+
+// Wait until all maps are loaded, then apply data
+let mapsLoaded = 0;
+function onMapLoaded() {
+  mapsLoaded++;
+  if (mapsLoaded === FUELS.length) applyYear(activeYear);
+}
+FUELS.forEach(fuel => maps[fuel].on('load', onMapLoaded));
+
+async function applyYear(year) {
+  document.getElementById('loading').classList.remove('hidden');
+
+  const data = await loadYear(year);
+  currentData = data;
+  activeYear  = year;
+
+  const vintage = currentVintage();
+
+  // Show the correct vintage layer, hide the other
+  FUELS.forEach(fuel => {
+    const map = maps[fuel];
+    ['2010', '2020'].forEach(v => {
+      if (map.getLayer(`fill-${v}`)) {
+        map.setLayoutProperty(`fill-${v}`, 'visibility',
+          v === vintage ? 'visible' : 'none');
+      }
+    });
+  });
+
+  // Apply feature states — one call per tract per map
+  const colorKeys = { gas: 'cg', elec: 'ce', fo: 'cf', other: 'co' };
+
+  FUELS.forEach(fuel => {
+    const map   = maps[fuel];
+    const cKey  = colorKeys[fuel];
+    const src   = `tracts-${vintage}`;
+
+    Object.entries(data).forEach(([geoid, vals]) => {
+      if (typeof vals !== 'object' || !vals[cKey]) return;
+      map.setFeatureState(
+        { source: src, sourceLayer: 'tracts', id: geoid },
+        { color: vals[cKey] }
+      );
+    });
+  });
+
+  document.getElementById('loading').classList.add('hidden');
+}
+
+// ── Year slider interaction ───────────────────────────────────────────────────
+let sliderDebounce = null;
+document.getElementById('year-slider').addEventListener('input', e => {
+  const year = parseInt(e.target.value);
+  document.getElementById('year-label').textContent = year;
+  clearTimeout(sliderDebounce);
+  sliderDebounce = setTimeout(() => applyYear(year), 120);
+});
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+(async () => {
+  await loadManifest();
+  // applyYear is triggered once all maps fire their 'load' event
+})();
+</script>
+</body>
+</html>

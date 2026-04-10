@@ -36,8 +36,8 @@ ACS_VARS <- c(tot  = "B25040_001",
               elec = "B25040_004",
               fo   = "B25040_005")
 
-YEARS_2010_TRACTS <- c(2010)      # ACS 5-year using 2010 Census geography
-YEARS_2020_TRACTS <- c(2024)      # ACS 5-year using 2020 Census geography
+YEARS_2010_TRACTS <- 2010:2020     # ACS 5-year using 2010 Census geography
+YEARS_2020_TRACTS <- 2021:2024     # ACS 5-year using 2020 Census geography
 
 # Palettes — must match docs/index.html
 pal_gas   <- colorNumeric(plasma(256,  begin=0.1, end=0.9), domain=c(0,1), na.color="#d0d0d0")

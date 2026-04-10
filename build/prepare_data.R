@@ -91,7 +91,11 @@ pull_tracts_full <- function(vintage, cache_path) {
   cat(sprintf("  [download] %d TIGER/Line tracts (full resolution) ...\n", vintage))
   sf_out <- map_dfr(CONUS, function(s) {
     cat(" ", s)
-    tracts(state=s, year=vintage, cb=FALSE)
+    # Connecticut special case: 2020 TIGER/Line uses old 8-county FIPS codes,
+    # but ACS 2021+ uses the new 9-planning-region codes introduced in 2022.
+    # Use 2022 TIGER/Line for CT when building the 2020-vintage tile set.
+    tract_year <- if (vintage == 2020 && s == "CT") 2022L else vintage
+    tracts(state=s, year=tract_year, cb=FALSE)
   })
   cat("\n")
   sf_out <- st_transform(sf_out, 4326)
@@ -191,7 +195,9 @@ manifest <- list(
   vintage_2020    = YEARS_2020_TRACTS,
   default_year    = max(all_years)
 )
-write(toJSON(manifest, auto_unbox=TRUE), "docs/data/manifest.json")
+# auto_unbox=FALSE ensures single-element vectors stay as JSON arrays,
+# which is required for .includes() in the JS frontend.
+write(toJSON(manifest, auto_unbox=FALSE), "docs/data/manifest.json")
 cat("Wrote docs/data/manifest.json\n")
 
 cat("\n── Done. Run build/build_tiles.sh to generate PMTiles. ─────────────────\n")

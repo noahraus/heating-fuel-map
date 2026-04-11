@@ -528,18 +528,24 @@ async function applyYear(year) {
     map.setPaintProperty(layer, 'fill-color', expr);
   });
 
-  // Hide the loading overlay only after every map has gone idle —
-  // i.e. all PMTiles range requests for the current viewport have landed.
-  // Hiding immediately after setPaintProperty would dismiss the overlay
-  // while tiles are still in-flight, leaving tracts visibly absent.
-  let idleCount = 0;
+  // Hide the loading overlay only once every map has gone idle AND reports
+  // areTilesLoaded() === true. The PMTiles protocol fetches its directory index
+  // first, which creates a brief window with no pending requests where MapLibre
+  // fires 'idle' before the actual tile range requests have started. Checking
+  // areTilesLoaded() after each idle catches that case and re-waits.
+  let readyCount = 0;
   FUELS.forEach(fuel => {
-    maps[fuel].once('idle', () => {
-      idleCount++;
-      if (idleCount === FUELS.length) {
+    function onIdle() {
+      if (!maps[fuel].areTilesLoaded()) {
+        maps[fuel].once('idle', onIdle);
+        return;
+      }
+      readyCount++;
+      if (readyCount === FUELS.length) {
         document.getElementById('loading').classList.add('hidden');
       }
-    });
+    }
+    maps[fuel].once('idle', onIdle);
   });
 }
 

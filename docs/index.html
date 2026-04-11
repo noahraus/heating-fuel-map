@@ -512,8 +512,13 @@ async function applyYear(year) {
     const layer = `fill-${vintage}`;
     if (!map.getLayer(layer)) return;
 
-    // ['match', ['id'], geoid1, color1, geoid2, color2, ..., fallback]
-    const expr = ['match', ['id']];
+    // ['match', ['to-string', ['id']], geoid1, color1, ..., fallback]
+    // to-string coerces the feature ID to a string before matching.
+    // Tippecanoe converts numeric-looking GEOID strings to integers in the MVT
+    // (e.g. "36061001600" → 36061001600) for states whose FIPS code has no leading
+    // zero (states 10+). Without to-string, match fails for those features because
+    // the integer ID doesn't equal the string key, and they fall back to gray.
+    const expr = ['match', ['to-string', ['id']]];
     Object.entries(data).forEach(([geoid, vals]) => {
       if (typeof vals !== 'object' || !vals[cKey]) return;
       expr.push(geoid, vals[cKey]);

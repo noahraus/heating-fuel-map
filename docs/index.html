@@ -528,7 +528,19 @@ async function applyYear(year) {
     map.setPaintProperty(layer, 'fill-color', expr);
   });
 
-  document.getElementById('loading').classList.add('hidden');
+  // Hide the loading overlay only after every map has gone idle —
+  // i.e. all PMTiles range requests for the current viewport have landed.
+  // Hiding immediately after setPaintProperty would dismiss the overlay
+  // while tiles are still in-flight, leaving tracts visibly absent.
+  let idleCount = 0;
+  FUELS.forEach(fuel => {
+    maps[fuel].once('idle', () => {
+      idleCount++;
+      if (idleCount === FUELS.length) {
+        document.getElementById('loading').classList.add('hidden');
+      }
+    });
+  });
 }
 
 // ── Year slider interaction ───────────────────────────────────────────────────

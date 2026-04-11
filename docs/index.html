@@ -529,23 +529,40 @@ async function applyYear(year) {
   });
 
   // Hide the loading overlay only once every map has gone idle AND reports
-  // areTilesLoaded() === true. The PMTiles protocol fetches its directory index
-  // first, which creates a brief window with no pending requests where MapLibre
-  // fires 'idle' before the actual tile range requests have started. Checking
-  // areTilesLoaded() after each idle catches that case and re-waits.
-  let readyCount = 0;
+  // areTilesLoaded() === true for two consecutive animation frames.
+  //
+  // Why two checks? PMTiles fetches a directory index before issuing tile range
+  // requests. During that gap MapLibre has no pending requests, so it fires
+  // 'idle' and areTilesLoaded() returns true — a false positive. By the next
+  // requestAnimationFrame the actual tile requests have been queued, so
+  // areTilesLoaded() flips back to false. Waiting one frame catches this gap.
+  // If tiles are genuinely cached both checks pass immediately.
+  const fuelReady = {};
+  FUELS.forEach(fuel => { fuelReady[fuel] = false; });
+
   FUELS.forEach(fuel => {
-    function onIdle() {
+    function tryDone() {
+      if (fuelReady[fuel]) return;
       if (!maps[fuel].areTilesLoaded()) {
-        maps[fuel].once('idle', onIdle);
+        maps[fuel].once('idle', tryDone);
         return;
       }
-      readyCount++;
-      if (readyCount === FUELS.length) {
-        document.getElementById('loading').classList.add('hidden');
-      }
+      // areTilesLoaded() is true — verify on the next frame to rule out the
+      // PMTiles directory-fetch false positive.
+      requestAnimationFrame(() => {
+        if (fuelReady[fuel]) return;
+        if (!maps[fuel].areTilesLoaded()) {
+          // Tile requests were queued in the gap — wait for the next idle.
+          maps[fuel].once('idle', tryDone);
+          return;
+        }
+        fuelReady[fuel] = true;
+        if (FUELS.every(f => fuelReady[f])) {
+          document.getElementById('loading').classList.add('hidden');
+        }
+      });
     }
-    maps[fuel].once('idle', onIdle);
+    maps[fuel].once('idle', tryDone);
   });
 }
 

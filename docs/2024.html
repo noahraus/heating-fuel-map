@@ -74,6 +74,40 @@
 
     .map-container { width: 100%; height: 100%; }
 
+    /* ── Expand button ───────────────────────────────────────────── */
+    .expand-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      background: rgba(26,26,46,0.85);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #ccc;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .panel:hover .expand-btn { opacity: 1; }
+    .expand-btn:hover { background: rgba(40,40,80,0.95); color: #fff; }
+
+    /* ── Expanded (full-screen) panel ────────────────────────────── */
+    .panel--expanded {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 500 !important;
+    }
+    .panel--expanded .expand-btn { opacity: 1; }
+
     /* ── Legend ──────────────────────────────────────────────── */
     .legend {
       position: absolute;
@@ -191,6 +225,7 @@
 <div id="grid">
   <div class="panel" id="panel-gas">
     <div class="panel-label">Natural Gas</div>
+    <button class="expand-btn" data-fuel="gas" title="Expand">⤢</button>
     <div class="map-container" id="map-gas"></div>
     <div class="legend" id="legend-gas">
       <div class="legend-title">% of occupied units</div>
@@ -200,6 +235,7 @@
   </div>
   <div class="panel" id="panel-elec">
     <div class="panel-label">Electricity</div>
+    <button class="expand-btn" data-fuel="elec" title="Expand">⤢</button>
     <div class="map-container" id="map-elec"></div>
     <div class="legend" id="legend-elec">
       <div class="legend-title">% of occupied units</div>
@@ -209,6 +245,7 @@
   </div>
   <div class="panel" id="panel-fo">
     <div class="panel-label">Fuel Oil &amp; Kerosene</div>
+    <button class="expand-btn" data-fuel="fo" title="Expand">⤢</button>
     <div class="map-container" id="map-fo"></div>
     <div class="legend" id="legend-fo">
       <div class="legend-title">% of occupied units</div>
@@ -218,6 +255,7 @@
   </div>
   <div class="panel" id="panel-other">
     <div class="panel-label">Propane, Wood, Coal, Solar &amp; Other</div>
+    <button class="expand-btn" data-fuel="other" title="Expand">⤢</button>
     <div class="map-container" id="map-other"></div>
     <div class="legend" id="legend-other">
       <div class="legend-title">% of occupied units</div>
@@ -427,6 +465,47 @@ async function applyData() {
     document.getElementById('loading').classList.add('hidden');
   }, 1000);
 }
+
+// ── Panel expand / fullscreen ─────────────────────────────────────────────────
+let expandedFuel = null;
+
+document.querySelectorAll('.expand-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const fuel  = btn.dataset.fuel;
+    const panel = document.getElementById('panel-' + fuel);
+
+    if (expandedFuel === fuel) {
+      panel.classList.remove('panel--expanded');
+      btn.textContent = '⤢';
+      btn.title = 'Expand';
+      expandedFuel = null;
+    } else {
+      if (expandedFuel) {
+        const prev = document.getElementById('panel-' + expandedFuel);
+        prev.classList.remove('panel--expanded');
+        prev.querySelector('.expand-btn').textContent = '⤢';
+        prev.querySelector('.expand-btn').title = 'Expand';
+      }
+      panel.classList.add('panel--expanded');
+      btn.textContent = '✕';
+      btn.title = 'Collapse';
+      expandedFuel = fuel;
+    }
+    requestAnimationFrame(() => FUELS.forEach(f => maps[f].resize()));
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && expandedFuel) {
+    const panel = document.getElementById('panel-' + expandedFuel);
+    panel.classList.remove('panel--expanded');
+    panel.querySelector('.expand-btn').textContent = '⤢';
+    panel.querySelector('.expand-btn').title = 'Expand';
+    expandedFuel = null;
+    requestAnimationFrame(() => FUELS.forEach(f => maps[f].resize()));
+  }
+});
 
 // ── Info panel toggle ─────────────────────────────────────────────────────────
 document.getElementById('info-btn').addEventListener('click', e => {

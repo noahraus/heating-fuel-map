@@ -41,7 +41,8 @@
       flex-shrink: 0;
     }
     #header .nav-link:hover { text-decoration: underline; }
-    #header .logo { height: 45px; flex-shrink: 0; margin-left: auto; }
+    #header .logo { height: 45px; flex-shrink: 0; display: block; }
+    #header a:has(.logo) { margin-left: auto; flex-shrink: 0; }
 
     /* ── Map grid ────────────────────────────────────────────────── */
     #grid {
@@ -200,7 +201,7 @@
   <h1>US Heating Fuel — Change 2010 &rarr; 2024</h1>
   <p>Percentage-point change in share of occupied housing units, by primary heating fuel &mdash; county level, ACS 5-year estimates</p>
   <a class="nav-link" href="index.html">&larr; Year-by-year map</a>
-  <img class="logo" src="assets/FoHI_lockup_white.webp" alt="Future of Heat Initiative">
+  <a href="https://thefutureofheat.com" target="_blank" rel="noopener"><img class="logo" src="assets/FoHI_lockup_white.webp" alt="Future of Heat Initiative"></a>
 </div>
 
 <div id="grid">

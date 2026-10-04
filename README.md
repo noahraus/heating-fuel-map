@@ -97,7 +97,7 @@ install.packages(c(
 ))
 ```
 
-You will also need a free [Census API key](https://api.census.gov/data/key_signup.html). Set it at the top of `build/prepare_data.R`.
+You will also need a free [Census API key](https://api.census.gov/data/key_signup.html). Put it in `~/.Renviron` as `CENSUS_API_KEY=<your key>`; the build scripts read it from there and stop if it is missing.
 
 ### Steps
 

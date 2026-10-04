@@ -23,7 +23,8 @@ library(sf);         library(tigris)
 library(jsonlite);   library(rmapshaper)
 options(tigris_use_cache = TRUE)
 
-census_api_key("5508d1e16cef622a4033a524085b7117515a9e72")
+## Census API key comes from CENSUS_API_KEY in ~/.Renviron (read by tidycensus)
+stopifnot(nzchar(Sys.getenv("CENSUS_API_KEY")))
 
 CONUS <- setdiff(c(state.abb, "DC"), c("AK", "HI"))
 
